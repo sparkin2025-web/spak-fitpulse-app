@@ -1,0 +1,895 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FitPulse - Advanced Fitness & Health Tracker</title>
+    
+    <!-- PWA / Web App Capabilities -->
+    <meta name="theme-color" content="#16a34a">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="FitPulse">
+    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/2964/2964514.png">
+
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome CDN -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- SheetJS (xlsx) CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#f0fdf4',
+                            100: '#dcfce7',
+                            200: '#bbf7d0',
+                            500: '#22c55e',
+                            600: '#16a34a',
+                            700: '#15803d',
+                            800: '#166534'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans antialiased min-h-screen flex flex-col">
+
+    <!-- Top Navbar / Header -->
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <button id="mobileMenuBtn" onclick="toggleSidebar()" class="md:hidden text-slate-500 hover:text-slate-700 focus:outline-none">
+                    <i class="fa-solid fa-bars text-xl"></i>
+                </button>
+                <div class="flex items-center space-x-2">
+                    <div class="bg-brand-600 text-white p-2 rounded-xl shadow-md flex items-center justify-center">
+                        <i class="fa-solid fa-heart-pulse text-lg"></i>
+                    </div>
+                    <span class="font-bold text-xl tracking-tight bg-gradient-to-r from-brand-600 to-emerald-600 bg-clip-text text-transparent">FitPulse</span>
+                </div>
+            </div>
+
+            <!-- Live Clock and Date Display -->
+            <div class="hidden sm:flex items-center space-x-4 bg-slate-100 px-4 py-1.5 rounded-full border border-slate-200 text-sm font-medium text-slate-600">
+                <div class="flex items-center space-x-2">
+                    <i class="fa-regular fa-calendar text-brand-600"></i>
+                    <span id="currentDateDisplay">Loading date...</span>
+                </div>
+                <span class="text-slate-300">|</span>
+                <div class="flex items-center space-x-2">
+                    <i class="fa-regular fa-clock text-brand-600"></i>
+                    <span id="currentClockDisplay" class="font-mono font-semibold">00:00:00 AM</span>
+                </div>
+            </div>
+
+            <!-- Header Action Buttons -->
+            <div class="flex items-center space-x-3">
+                <button onclick="exportToExcel()" class="bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 px-3 py-1.5 rounded-lg text-sm font-medium transition flex items-center space-x-1.5 shadow-sm">
+                    <i class="fa-solid fa-file-excel text-emerald-600"></i>
+                    <span class="hidden md:inline">Export Excel</span>
+                </button>
+                <label class="bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 px-3 py-1.5 rounded-lg text-sm font-medium transition flex items-center space-x-1.5 cursor-pointer shadow-sm">
+                    <i class="fa-solid fa-file-import text-slate-500"></i>
+                    <span class="hidden md:inline">Import Excel</span>
+                    <input type="file" id="importFile" accept=".xlsx, .xls" class="hidden" onchange="importFromExcel(event)">
+                </label>
+            </div>
+        </div>
+    </header>
+
+    <div class="flex-1 flex max-w-7xl w-full mx-auto">
+        <!-- Sidebar Navigation -->
+        <aside id="sidebar" class="fixed inset-y-0 left-0 z-40 w-64 bg-white border-r border-slate-200 transform -translate-x-full md:translate-x-0 md:static md:inset-auto transition-transform duration-200 ease-in-out flex flex-col pt-16 md:pt-0">
+            <div class="p-4 border-b border-slate-100 flex items-center justify-between md:hidden">
+                <span class="font-bold text-lg text-slate-700">Menu</span>
+                <button onclick="toggleSidebar()" class="text-slate-400 hover:text-slate-600">
+                    <i class="fa-solid fa-xmark text-xl"></i>
+                </button>
+            </div>
+            <nav class="flex-1 p-4 space-y-1.5">
+                <button onclick="switchTab('dashboard')" id="nav-dashboard" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl font-medium text-sm transition bg-brand-50 text-brand-700">
+                    <i class="fa-solid fa-chart-pie w-5 text-center"></i>
+                    <span>Dashboard</span>
+                </button>
+                <button onclick="switchTab('log')" id="nav-log" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl font-medium text-sm transition text-slate-600 hover:bg-slate-100 hover:text-slate-900">
+                    <i class="fa-solid fa-pen-to-square w-5 text-center"></i>
+                    <span>Today's Log</span>
+                </button>
+                <button onclick="switchTab('goals')" id="nav-goals" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl font-medium text-sm transition text-slate-600 hover:bg-slate-100 hover:text-slate-900">
+                    <i class="fa-solid fa-sliders w-5 text-center"></i>
+                    <span>Goals & Profile</span>
+                </button>
+                <button onclick="switchTab('history')" id="nav-history" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl font-medium text-sm transition text-slate-600 hover:bg-slate-100 hover:text-slate-900">
+                    <i class="fa-solid fa-clock-rotate-left w-5 text-center"></i>
+                    <span>History & Data</span>
+                </button>
+            </nav>
+            <div class="p-4 border-t border-slate-100">
+                <div class="bg-gradient-to-br from-brand-500 to-emerald-600 text-white p-4 rounded-xl shadow-inner">
+                    <div class="text-xs uppercase font-bold tracking-wider opacity-80">Daily Quote</div>
+                    <p id="sidebarQuote" class="text-xs mt-1 italic leading-relaxed">"Consistency is the key to unlocking your true potential."</p>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Backdrop for mobile menu -->
+        <div id="sidebarBackdrop" onclick="toggleSidebar()" class="fixed inset-0 bg-slate-900/50 z-30 hidden md:hidden"></div>
+
+        <!-- Main Content Area -->
+        <main class="flex-1 p-4 sm:p-6 lg:p-8 max-w-5xl overflow-y-auto">
+
+            <!-- TAB 1: DASHBOARD -->
+            <section id="tab-dashboard" class="space-y-6">
+                <div class="sm:hidden bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col space-y-2">
+                    <div class="flex items-center space-x-2 text-sm font-medium text-slate-600">
+                        <i class="fa-regular fa-calendar text-brand-600"></i>
+                        <span id="mobileCurrentDateDisplay">Loading date...</span>
+                    </div>
+                    <div class="flex items-center space-x-2 text-lg font-bold text-slate-800">
+                        <i class="fa-regular fa-clock text-brand-600"></i>
+                        <span id="mobileCurrentClockDisplay" class="font-mono">00:00:00 AM</span>
+                    </div>
+                </div>
+
+                <div class="bg-gradient-to-r from-brand-600 to-emerald-700 text-white rounded-2xl p-6 shadow-md relative overflow-hidden flex flex-col justify-between">
+                    <div class="absolute -right-10 -bottom-10 text-white/10 text-9xl font-bold pointer-events-none">
+                        <i class="fa-solid fa-fire"></i>
+                    </div>
+                    <div class="relative z-10">
+                        <div class="inline-block bg-white/25 backdrop-blur-md px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wider mb-3">யாதென அறியாமல் தொட்டு, யாதுமாகி அழிந்து, யாம் யாரென மீண்டெழுந்து வாழ்</div>
+                        <h2 id="dashboardQuoteTitle" class="text-xl sm:text-2xl font-bold leading-snug">"Small daily improvements over time lead to stunning results."</h2>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
+                        <div class="flex items-center justify-between text-slate-500 mb-3">
+                            <span class="text-xs font-bold uppercase tracking-wider">Workout Streak</span>
+                            <div class="w-9 h-9 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
+                                <i class="fa-solid fa-fire text-base"></i>
+                            </div>
+                        </div>
+                        <div>
+                            <div id="statStreak" class="text-3xl font-extrabold text-slate-800">0 days</div>
+                            <p class="text-xs text-slate-500 mt-1">Keep the momentum alive!</p>
+                        </div>
+                    </div>
+
+                    <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
+                        <div class="flex items-center justify-between text-slate-500 mb-3">
+                            <span class="text-xs font-bold uppercase tracking-wider">Today's Progress</span>
+                            <div class="w-9 h-9 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center">
+                                <i class="fa-solid fa-circle-check text-base"></i>
+                            </div>
+                        </div>
+                        <div>
+                            <div id="statCompletion" class="text-3xl font-extrabold text-slate-800">0%</div>
+                            <div class="w-full bg-slate-100 rounded-full h-2 mt-2 overflow-hidden">
+                                <div id="statCompletionBar" class="bg-brand-600 h-2 rounded-full transition-all duration-500" style="width: 0%"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
+                        <div class="flex items-center justify-between text-slate-500 mb-3">
+                            <span class="text-xs font-bold uppercase tracking-wider">Current Weight</span>
+                            <div class="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
+                                <i class="fa-solid fa-weight-scale text-base"></i>
+                            </div>
+                        </div>
+                        <div>
+                            <div id="statCurrentWeight" class="text-3xl font-extrabold text-slate-800">-- kg</div>
+                            <p id="statWeightDiff" class="text-xs text-slate-500 mt-1">Log today's weight</p>
+                        </div>
+                    </div>
+
+                    <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
+                        <div class="flex items-center justify-between text-slate-500 mb-3">
+                            <span class="text-xs font-bold uppercase tracking-wider">Water Intake</span>
+                            <div class="w-9 h-9 rounded-xl bg-cyan-50 text-cyan-600 flex items-center justify-center">
+                                <i class="fa-solid fa-droplet text-base"></i>
+                            </div>
+                        </div>
+                        <div>
+                            <div id="statWaterIntake" class="text-3xl font-extrabold text-slate-800">0 / 2500 ml</div>
+                            <p class="text-xs text-slate-500 mt-1">Hydration goal</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                        <h3 class="text-lg font-bold text-slate-800 mb-4 flex items-center space-x-2">
+                            <i class="fa-solid fa-bullseye text-brand-600"></i>
+                            <span>Goals vs. Today's Status</span>
+                        </h3>
+                        <div class="space-y-4">
+                            <div>
+                                <div class="flex justify-between text-sm font-medium mb-1">
+                                    <span class="text-slate-600">Protein Goal</span>
+                                    <span id="dashProteinStatus" class="text-slate-800 font-semibold">0g / 120g</span>
+                                </div>
+                                <div class="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
+                                    <div id="dashProteinBar" class="bg-brand-600 h-2.5 rounded-full transition-all duration-300" style="width: 0%"></div>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="flex justify-between text-sm font-medium mb-1">
+                                    <span class="text-slate-600">Sleep Goal</span>
+                                    <span id="dashSleepStatus" class="text-slate-800 font-semibold">0h / 8h</span>
+                                </div>
+                                <div class="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
+                                    <div id="dashSleepBar" class="bg-indigo-600 h-2.5 rounded-full transition-all duration-300" style="width: 0%"></div>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="flex justify-between text-sm font-medium mb-1">
+                                    <span class="text-slate-600">Workout Completed</span>
+                                    <span id="dashWorkoutStatus" class="text-slate-800 font-semibold">No</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                        <h3 class="text-lg font-bold text-slate-800 mb-4 flex items-center space-x-2">
+                            <i class="fa-solid fa-chart-line text-brand-600"></i>
+                            <span>Weekly Summary Averages</span>
+                        </h3>
+                        <div class="space-y-4">
+                            <div class="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-100">
+                                <span class="text-sm font-medium text-slate-600">Avg Weekly Weight</span>
+                                <span id="summaryAvgWeight" class="font-bold text-slate-800">-- kg</span>
+                            </div>
+                            <div class="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-100">
+                                <span class="text-sm font-medium text-slate-600">Avg Daily Sleep</span>
+                                <span id="summaryAvgSleep" class="font-bold text-slate-800">-- hrs</span>
+                            </div>
+                            <div class="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-100">
+                                <span class="text-sm font-medium text-slate-600">Avg Daily Water</span>
+                                <span id="summaryAvgWater" class="font-bold text-slate-800">-- ml</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB 2: TODAY'S LOG -->
+            <section id="tab-log" class="space-y-6 hidden">
+                <div class="bg-white p-6 sm:p-8 rounded-2xl border border-slate-200 shadow-sm">
+                    <div class="flex items-center justify-between pb-4 mb-6 border-b border-slate-100">
+                        <div>
+                            <h2 class="text-xl font-bold text-slate-800">Today's Fitness & Health Log</h2>
+                            <p class="text-sm text-slate-500 mt-0.5">Record your metrics for <span id="logDateLabel" class="font-semibold text-slate-700">Today</span></p>
+                        </div>
+                        <button onclick="saveTodayLog()" class="bg-brand-600 hover:bg-brand-700 text-white px-5 py-2.5 rounded-xl text-sm font-semibold shadow-sm transition flex items-center space-x-2">
+                            <i class="fa-solid fa-floppy-disk"></i>
+                            <span>Save Log</span>
+                        </button>
+                    </div>
+
+                    <form id="dailyLogForm" onsubmit="event.preventDefault(); saveTodayLog();" class="space-y-6">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div class="bg-slate-50 p-5 rounded-xl border border-slate-200 space-y-4">
+                                <h3 class="font-bold text-slate-800 flex items-center space-x-2">
+                                    <i class="fa-solid fa-weight-scale text-brand-600"></i>
+                                    <span>Body Weight</span>
+                                </h3>
+                                <div>
+                                    <label class="block text-xs font-semibold uppercase text-slate-500 mb-1.5">Weight (kg)</label>
+                                    <input type="number" step="0.1" id="logWeight" placeholder="e.g. 70.5" oninput="recalculateMetrics()" class="w-full bg-white border border-slate-300 rounded-lg px-3.5 py-2 text-sm focus:ring-2 focus:ring-brand-500 focus:outline-none">
+                                </div>
+                            </div>
+
+                            <div class="bg-slate-50 p-5 rounded-xl border border-slate-200 space-y-4">
+                                <h3 class="font-bold text-slate-800 flex items-center space-x-2">
+                                    <i class="fa-solid fa-bed text-indigo-600"></i>
+                                    <span>Sleep Tracker</span>
+                                </h3>
+                                <div class="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label class="block text-xs font-semibold uppercase text-slate-500 mb-1.5">Bedtime</label>
+                                        <input type="time" id="logBedtime" onchange="calcTotalSleep()" class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-500 focus:outline-none">
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-semibold uppercase text-slate-500 mb-1.5">Wakeup Time</label>
+                                        <input type="time" id="logWakeup" onchange="calcTotalSleep()" class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-500 focus:outline-none">
+                                    </div>
+                                </div>
+                                <div class="grid grid-cols-2 gap-3 pt-2 border-t border-slate-200">
+                                    <div>
+                                        <label class="block text-xs font-semibold uppercase text-slate-500 mb-1.5">Nap (hrs)</label>
+                                        <input type="number" step="0.5" id="logNapHours" placeholder="0" oninput="calcTotalSleep()" class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-500 focus:outline-none">
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-semibold uppercase text-slate-500 mb-1.5">Total Sleep</label>
+                                        <div id="logTotalSleepDisplay" class="bg-indigo-50 text-indigo-700 font-bold px-3 py-2 rounded-lg text-sm flex items-center justify-center">0.0 hrs</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div class="bg-slate-50 p-5 rounded-xl border border-slate-200 space-y-4">
+                                <h3 class="font-bold text-slate-800 flex items-center space-x-2">
+                                    <i class="fa-solid fa-dumbbell text-amber-600"></i>
+                                    <span>Workout & Flexibility</span>
+                                </h3>
+                                <div>
+                                    <label class="block text-xs font-semibold uppercase text-slate-500 mb-1.5">Workout Type</label>
+                                    <select id="logWorkoutType" class="w-full bg-white border border-slate-300 rounded-lg px-3.5 py-2 text-sm focus:ring-2 focus:ring-brand-500 focus:outline-none">
+                                        <option value="None">None (Rest Day)</option>
+                                        <option value="Strength / Weight Training">Strength / Weight Training</option>
+                                        <option value="Cardio / Running">Cardio / Running</option>
+                                        <option value="HIIT / Crossfit">HIIT / Crossfit</option>
+                                        <option value="Yoga / Pilates">Yoga / Pilates</option>
+                                        <option value="Sports / Swimming">Sports / Swimming</option>
+                                    </select>
+                                </div>
+                                <div class="pt-2">
+                                    <label class="flex items-center space-x-3 cursor-pointer">
+                                        <input type="checkbox" id="logStretching" class="w-4 h-4 text-brand-600 rounded border-slate-300 focus:ring-brand-500">
+                                        <span class="text-sm font-medium text-slate-700">Completed Stretching / Flexibility Session</span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div class="bg-slate-50 p-5 rounded-xl border border-slate-200 space-y-4">
+                                <h3 class="font-bold text-slate-800 flex items-center space-x-2">
+                                    <i class="fa-solid fa-utensils text-emerald-600"></i>
+                                    <span>Nutrition & Hydration</span>
+                                </h3>
+                                <div>
+                                    <label class="block text-xs font-semibold uppercase text-slate-500 mb-1.5">Protein Consumed (grams)</label>
+                                    <input type="number" id="logProtein" placeholder="e.g. 130" class="w-full bg-white border border-slate-300 rounded-lg px-3.5 py-2 text-sm focus:ring-2 focus:ring-brand-500 focus:outline-none">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-semibold uppercase text-slate-500 mb-1.5">Water Intake (ml)</label>
+                                    <div class="flex items-center space-x-3">
+                                        <button type="button" onclick="adjustWater(-250)" class="bg-white border border-slate-300 hover:bg-slate-100 text-slate-700 px-3 py-2 rounded-lg font-bold text-sm shadow-sm">-250</button>
+                                        <input type="number" id="logWater" value="0" class="flex-1 text-center bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm font-bold text-slate-800 focus:ring-2 focus:ring-brand-500 focus:outline-none">
+                                        <button type="button" onclick="adjustWater(250)" class="bg-white border border-slate-300 hover:bg-slate-100 text-slate-700 px-3 py-2 rounded-lg font-bold text-sm shadow-sm">+250</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="bg-slate-50 p-5 rounded-xl border border-slate-200 space-y-2">
+                            <label class="block text-xs font-semibold uppercase text-slate-500">Daily Notes & Reflections</label>
+                            <textarea id="logNotes" rows="3" placeholder="How did you feel today? Any personal milestones or soreness..." class="w-full bg-white border border-slate-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-brand-500 focus:outline-none"></textarea>
+                        </div>
+                    </form>
+                </div>
+            </section>
+
+            <!-- TAB 3: GOALS & PROFILE -->
+            <section id="tab-goals" class="space-y-6 hidden">
+                <div class="bg-white p-6 sm:p-8 rounded-2xl border border-slate-200 shadow-sm">
+                    <div class="flex items-center justify-between pb-4 mb-6 border-b border-slate-100">
+                        <div>
+                            <h2 class="text-xl font-bold text-slate-800">Goals & User Profile Setup</h2>
+                            <p class="text-sm text-slate-500 mt-0.5">Customize your personal stats and daily targets.</p>
+                            <p class="text-xs italic text-brand-700 font-semibold mt-1">யாதென அறியாமல் தொட்டு, யாதுமாகி அழிந்து, யாம் யாரென மீண்டெழுந்து வாழ்</p>
+                        </div>
+                        <button onclick="saveProfile()" class="bg-brand-600 hover:bg-brand-700 text-white px-5 py-2.5 rounded-xl text-sm font-semibold shadow-sm transition flex items-center space-x-2">
+                            <i class="fa-solid fa-floppy-disk"></i>
+                            <span>Save Profile</span>
+                        </button>
+                    </div>
+
+                    <form id="profileForm" onsubmit="event.preventDefault(); saveProfile();" class="space-y-6">
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <div>
+                                <label class="block text-xs font-semibold uppercase text-slate-500 mb-1.5">Your Name</label>
+                                <input type="text" id="profileName" placeholder="e.g. Alex Smith" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3.5 py-2 text-sm focus:ring-2 focus:ring-brand-500 focus:outline-none">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold uppercase text-slate-500 mb-1.5">Age (years)</label>
+                                <input type="number" id="profileAge" placeholder="e.g. 28" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3.5 py-2 text-sm focus:ring-2 focus:ring-brand-500 focus:outline-none">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold uppercase text-slate-500 mb-1.5">Height (cm)</label>
+                                <input type="number" id="profileHeight" placeholder="e.g. 175" oninput="recalculateMetrics()" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3.5 py-2 text-sm focus:ring-2 focus:ring-brand-500 focus:outline-none">
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <div>
+                                <label class="block text-xs font-semibold uppercase text-slate-500 mb-1.5">Target Weight (kg)</label>
+                                <input type="number" step="0.1" id="profileTargetWeight" placeholder="e.g. 68.0" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3.5 py-2 text-sm focus:ring-2 focus:ring-brand-500 focus:outline-none">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold uppercase text-slate-500 mb-1.5">Daily Sleep Target (hrs)</label>
+                                <input type="number" step="0.5" id="profileSleepTarget" value="8" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3.5 py-2 text-sm focus:ring-2 focus:ring-brand-500 focus:outline-none">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold uppercase text-slate-500 mb-1.5">Daily Water Target (ml)</label>
+                                <input type="number" id="profileWaterTarget" value="2500" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3.5 py-2 text-sm focus:ring-2 focus:ring-brand-500 focus:outline-none">
+                            </div>
+                        </div>
+
+                        <div class="bg-cyan-50 border border-cyan-200 p-4 rounded-xl text-xs text-cyan-900 flex items-start space-x-3">
+                            <i class="fa-solid fa-circle-info text-cyan-600 mt-0.5 text-base"></i>
+                            <div>
+                                <span class="font-bold">Auto Set Minimum Daily Water Goal:</span> Automatically scaled using current body weight rule (1 liter of water per 25 kg body weight).
+                            </div>
+                        </div>
+
+                        <div class="bg-brand-50 p-5 rounded-xl border border-brand-200 mt-6 space-y-4">
+                            <h3 class="font-bold text-brand-800 flex items-center space-x-2">
+                                <i class="fa-solid fa-calculator"></i>
+                                <span>Auto-Calculated Metrics</span>
+                            </h3>
+                            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                <div class="bg-white p-4 rounded-lg border border-brand-100 shadow-sm">
+                                    <span class="text-xs font-semibold uppercase text-slate-500">Estimated BMI</span>
+                                    <div id="calcBmiDisplay" class="text-xl font-bold text-slate-800 mt-1">--</div>
+                                </div>
+                                <div class="bg-white p-4 rounded-lg border border-brand-100 shadow-sm">
+                                    <span class="text-xs font-semibold uppercase text-slate-500">Rec. Daily Protein</span>
+                                    <div id="calcProteinDisplay" class="text-xl font-bold text-slate-800 mt-1">-- g</div>
+                                </div>
+                                <div class="bg-white p-4 rounded-lg border border-brand-100 shadow-sm">
+                                    <span class="text-xs font-semibold uppercase text-slate-500">Auto Water Goal</span>
+                                    <div id="calcWaterDisplay" class="text-xl font-bold text-slate-800 mt-1">-- ml</div>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </section>
+
+            <!-- TAB 4: HISTORY & DATA -->
+            <section id="tab-history" class="space-y-6 hidden">
+                <div class="bg-white p-6 sm:p-8 rounded-2xl border border-slate-200 shadow-sm">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-4 mb-6 border-b border-slate-100 gap-4">
+                        <div>
+                            <h2 class="text-xl font-bold text-slate-800">History & Recorded Data</h2>
+                            <p class="text-sm text-slate-500 mt-0.5">View and manage all saved daily records.</p>
+                        </div>
+                        <button onclick="clearAllData()" class="bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 px-4 py-2 rounded-xl text-sm font-semibold transition flex items-center space-x-2 self-start sm:self-auto">
+                            <i class="fa-solid fa-trash"></i>
+                            <span>Clear All History</span>
+                        </button>
+                    </div>
+
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-sm text-slate-600">
+                            <thead class="bg-slate-50 text-slate-700 font-semibold uppercase text-xs border-b border-slate-200">
+                                <tr>
+                                    <th class="py-3 px-4">Date</th>
+                                    <th class="py-3 px-4">Weight</th>
+                                    <th class="py-3 px-4">Sleep</th>
+                                    <th class="py-3 px-4">Workout</th>
+                                    <th class="py-3 px-4">Protein</th>
+                                    <th class="py-3 px-4">Water</th>
+                                    <th class="py-3 px-4">Notes</th>
+                                </tr>
+                            </thead>
+                            <tbody id="historyTableBody" class="divide-y divide-slate-100">
+                                <!-- Dynamic rows inserted via JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <!-- Application Script Logic & PWA Registration -->
+    <script>
+        // Storage Keys
+        const STORAGE_KEY_PROFILE = 'fitpulse_profile_data';
+        const STORAGE_KEY_LOGS = 'fitpulse_daily_logs';
+
+        // Initial Data Structure
+        let profile = JSON.parse(localStorage.getItem(STORAGE_KEY_PROFILE)) || {
+            name: '', age: '', height: '', targetWeight: '', sleepTarget: 8, waterTarget: 2500
+        };
+        let logs = JSON.parse(localStorage.getItem(STORAGE_KEY_LOGS)) || {};
+
+        function getTodayKey() {
+            const today = new Date();
+            return today.toISOString().split('T')[0];
+        }
+
+        // Live Clock
+        function updateClock() {
+            const now = new Date();
+            const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            const dateStr = now.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+
+            document.getElementById('currentClockDisplay').innerText = timeStr;
+            document.getElementById('currentDateDisplay').innerText = dateStr;
+            
+            if (document.getElementById('mobileCurrentClockDisplay')) {
+                document.getElementById('mobileCurrentClockDisplay').innerText = timeStr;
+                document.getElementById('mobileCurrentDateDisplay').innerText = dateStr;
+            }
+        }
+        setInterval(updateClock, 1000);
+        updateClock();
+
+        // UI Navigation Tab Switcher
+        function switchTab(tabId) {
+            ['dashboard', 'log', 'goals', 'history'].forEach(id => {
+                const sec = document.getElementById(`tab-${id}`);
+                const btn = document.getElementById(`nav-${id}`);
+                if (id === tabId) {
+                    sec.classList.remove('hidden');
+                    btn.className = "w-full flex items-center space-x-3 px-4 py-3 rounded-xl font-medium text-sm transition bg-brand-50 text-brand-700 font-bold";
+                } else {
+                    sec.classList.add('hidden');
+                    btn.className = "w-full flex items-center space-x-3 px-4 py-3 rounded-xl font-medium text-sm transition text-slate-600 hover:bg-slate-100 hover:text-slate-900";
+                }
+            });
+            if (window.innerWidth < 768) {
+                document.getElementById('sidebar').classList.add('-translate-x-full');
+                document.getElementById('sidebarBackdrop').classList.add('hidden');
+            }
+        }
+
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const backdrop = document.getElementById('sidebarBackdrop');
+            sidebar.classList.toggle('-translate-x-full');
+            backdrop.classList.toggle('hidden');
+        }
+
+        // Water Counter Helper
+        function adjustWater(amount) {
+            const input = document.getElementById('logWater');
+            let current = parseInt(input.value) || 0;
+            current = Math.max(0, current + amount);
+            input.value = current;
+        }
+
+        // Sleep Duration Auto Calculation
+        function calcTotalSleep() {
+            const bedtime = document.getElementById('logBedtime').value;
+            const wakeup = document.getElementById('logWakeup').value;
+            const nap = parseFloat(document.getElementById('logNapHours').value) || 0;
+
+            let mainSleep = 0;
+            if (bedtime && wakeup) {
+                const [bH, bM] = bedtime.split(':').map(Number);
+                const [wH, wM] = wakeup.split(':').map(Number);
+                let start = bH * 60 + bM;
+                let end = wH * 60 + wM;
+                if (end < start) end += 24 * 60; // Overnight sleep adjustment
+                mainSleep = (end - start) / 60;
+            }
+            const total = (mainSleep + nap).toFixed(1);
+            document.getElementById('logTotalSleepDisplay').innerText = `${total} hrs`;
+            return parseFloat(total);
+        }
+
+        // Profile saving & auto-calculation formulas
+        function saveProfile() {
+            profile = {
+                name: document.getElementById('profileName').value,
+                age: document.getElementById('profileAge').value,
+                height: document.getElementById('profileHeight').value,
+                targetWeight: document.getElementById('profileTargetWeight').value,
+                sleepTarget: parseFloat(document.getElementById('profileSleepTarget').value) || 8,
+                waterTarget: parseInt(document.getElementById('profileWaterTarget').value) || 2500
+            };
+            localStorage.setItem(STORAGE_KEY_PROFILE, JSON.stringify(profile));
+            recalculateMetrics();
+            refreshDashboard();
+            alert('Profile configuration successfully updated!');
+        }
+
+        function loadProfileFields() {
+            document.getElementById('profileName').value = profile.name || '';
+            document.getElementById('profileAge').value = profile.age || '';
+            document.getElementById('profileHeight').value = profile.height || '';
+            document.getElementById('profileTargetWeight').value = profile.targetWeight || '';
+            document.getElementById('profileSleepTarget').value = profile.sleepTarget || 8;
+            document.getElementById('profileWaterTarget').value = profile.waterTarget || 2500;
+        }
+
+        function recalculateMetrics() {
+            const todayKey = getTodayKey();
+            const weight = parseFloat(document.getElementById('logWeight').value) || (logs[todayKey]?.weight) || 0;
+            const height = parseFloat(document.getElementById('profileHeight').value) || 0;
+
+            // BMI Calculation
+            if (weight > 0 && height > 0) {
+                const heightM = height / 100;
+                const bmi = (weight / (heightM * heightM)).toFixed(1);
+                document.getElementById('calcBmiDisplay').innerText = bmi;
+            } else {
+                document.getElementById('calcBmiDisplay').innerText = '--';
+            }
+
+            // Recommended Protein (1.6g to 2.0g per kg body weight standard)
+            if (weight > 0) {
+                const recProtein = Math.round(weight * 1.8);
+                document.getElementById('calcProteinDisplay').innerText = `${recProtein} g`;
+            } else {
+                document.getElementById('calcProteinDisplay').innerText = '-- g';
+            }
+
+            // Auto Set Water Rule: 1 liter per 25 kg
+            if (weight > 0) {
+                const recWater = Math.round((weight / 25) * 1000);
+                document.getElementById('calcWaterDisplay').innerText = `${recWater} ml`;
+            } else {
+                document.getElementById('calcWaterDisplay').innerText = '-- ml';
+            }
+        }
+
+        // Save & Load Today's Log
+        function saveTodayLog() {
+            const todayKey = getTodayKey();
+            const sleepTotal = calcTotalSleep();
+            
+            logs[todayKey] = {
+                weight: parseFloat(document.getElementById('logWeight').value) || 0,
+                bedtime: document.getElementById('logBedtime').value,
+                wakeup: document.getElementById('logWakeup').value,
+                nap: parseFloat(document.getElementById('logNapHours').value) || 0,
+                sleepTotal: sleepTotal,
+                workoutType: document.getElementById('logWorkoutType').value,
+                stretching: document.getElementById('logStretching').checked,
+                protein: parseInt(document.getElementById('logProtein').value) || 0,
+                water: parseInt(document.getElementById('logWater').value) || 0,
+                notes: document.getElementById('logNotes').value
+            };
+
+            localStorage.setItem(STORAGE_KEY_LOGS, JSON.stringify(logs));
+            refreshDashboard();
+            renderHistoryTable();
+            alert("Today's log successfully saved!");
+        }
+
+        function loadTodayLog() {
+            const todayKey = getTodayKey();
+            const todayLog = logs[todayKey];
+            document.getElementById('logDateLabel').innerText = todayKey;
+
+            if (todayLog) {
+                document.getElementById('logWeight').value = todayLog.weight || '';
+                document.getElementById('logBedtime').value = todayLog.bedtime || '';
+                document.getElementById('logWakeup').value = todayLog.wakeup || '';
+                document.getElementById('logNapHours').value = todayLog.nap || '';
+                document.getElementById('logWorkoutType').value = todayLog.workoutType || 'None';
+                document.getElementById('logStretching').checked = !!todayLog.stretching;
+                document.getElementById('logProtein').value = todayLog.protein || '';
+                document.getElementById('logWater').value = todayLog.water || 0;
+                document.getElementById('logNotes').value = todayLog.notes || '';
+                calcTotalSleep();
+            }
+        }
+
+        // Dashboard Visual Metrics Updates
+        function refreshDashboard() {
+            const todayKey = getTodayKey();
+            const todayLog = logs[todayKey] || {};
+
+            // Calculate Workout Streak
+            let streak = 0;
+            let checkDate = new Date();
+            while (true) {
+                const key = checkDate.toISOString().split('T')[0];
+                if (logs[key] && logs[key].workoutType && logs[key].workoutType !== 'None') {
+                    streak++;
+                    checkDate.setDate(checkDate.getDate() - 1);
+                } else {
+                    break;
+                }
+            }
+            document.getElementById('statStreak').innerText = `${streak} days`;
+
+            // Today's Weight Card
+            if (todayLog.weight) {
+                document.getElementById('statCurrentWeight').innerText = `${todayLog.weight} kg`;
+                if (profile.targetWeight) {
+                    const diff = (todayLog.weight - profile.targetWeight).toFixed(1);
+                    document.getElementById('statWeightDiff').innerText = diff > 0 ? `${diff} kg above target` : `${Math.abs(diff)} kg to target`;
+                }
+            } else {
+                document.getElementById('statCurrentWeight').innerText = '-- kg';
+                document.getElementById('statWeightDiff').innerText = "Log today's weight";
+            }
+
+            // Hydration Card
+            const waterTarget = profile.waterTarget || 2500;
+            const waterVal = todayLog.water || 0;
+            document.getElementById('statWaterIntake').innerText = `${waterVal} / ${waterTarget} ml`;
+
+            // Protein & Sleep Status
+            const proteinTarget = todayLog.weight ? Math.round(todayLog.weight * 1.8) : 120;
+            const proteinVal = todayLog.protein || 0;
+            document.getElementById('dashProteinStatus').innerText = `${proteinVal}g / ${proteinTarget}g`;
+            const proteinPct = Math.min(100, Math.round((proteinVal / proteinTarget) * 100));
+            document.getElementById('dashProteinBar').style.width = `${proteinPct}%`;
+
+            const sleepTarget = profile.sleepTarget || 8;
+            const sleepVal = todayLog.sleepTotal || 0;
+            document.getElementById('dashSleepStatus').innerText = `${sleepVal}h / ${sleepTarget}h`;
+            const sleepPct = Math.min(100, Math.round((sleepVal / sleepTarget) * 100));
+            document.getElementById('dashSleepBar').style.width = `${sleepPct}%`;
+
+            document.getElementById('dashWorkoutStatus').innerText = (todayLog.workoutType && todayLog.workoutType !== 'None') ? todayLog.workoutType : 'None (Rest)';
+
+            // Overall Today Progress Calculation
+            let itemsDone = 0;
+            if (todayLog.weight) itemsDone++;
+            if (todayLog.sleepTotal >= sleepTarget) itemsDone++;
+            if (todayLog.protein >= proteinTarget) itemsDone++;
+            if (todayLog.water >= waterTarget) itemsDone++;
+            if (todayLog.workoutType && todayLog.workoutType !== 'None') itemsDone++;
+
+            const completionPct = Math.round((itemsDone / 5) * 100);
+            document.getElementById('statCompletion').innerText = `${completionPct}%`;
+            document.getElementById('statCompletionBar').style.width = `${completionPct}%`;
+
+            // Averages computation over logged items
+            const logEntries = Object.values(logs);
+            if (logEntries.length > 0) {
+                const avgWeight = (logEntries.reduce((acc, cur) => acc + (cur.weight || 0), 0) / logEntries.filter(l => l.weight).length || 0).toFixed(1);
+                const avgSleep = (logEntries.reduce((acc, cur) => acc + (cur.sleepTotal || 0), 0) / logEntries.filter(l => l.sleepTotal).length || 0).toFixed(1);
+                const avgWater = Math.round(logEntries.reduce((acc, cur) => acc + (cur.water || 0), 0) / logEntries.length);
+
+                document.getElementById('summaryAvgWeight').innerText = avgWeight > 0 ? `${avgWeight} kg` : '-- kg';
+                document.getElementById('summaryAvgSleep').innerText = avgSleep > 0 ? `${avgSleep} hrs` : '-- hrs';
+                document.getElementById('summaryAvgWater').innerText = avgWater > 0 ? `${avgWater} ml` : '-- ml';
+            }
+        }
+
+        // Render History View
+        function renderHistoryTable() {
+            const tbody = document.getElementById('historyTableBody');
+            tbody.innerHTML = '';
+            const sortedDates = Object.keys(logs).sort().reverse();
+
+            if (sortedDates.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="7" class="py-4 text-center text-slate-400">No logs recorded yet.</td></tr>`;
+                return;
+            }
+
+            sortedDates.forEach(date => {
+                const item = logs[date];
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-slate-50 transition";
+                tr.innerHTML = `
+                    <td class="py-3 px-4 font-semibold text-slate-700">${date}</td>
+                    <td class="py-3 px-4">${item.weight ? item.weight + ' kg' : '--'}</td>
+                    <td class="py-3 px-4">${item.sleepTotal ? item.sleepTotal + ' hrs' : '--'}</td>
+                    <td class="py-3 px-4"><span class="bg-slate-100 text-slate-700 text-xs px-2 py-1 rounded-md font-medium">${item.workoutType || 'None'}</span></td>
+                    <td class="py-3 px-4">${item.protein ? item.protein + ' g' : '--'}</td>
+                    <td class="py-3 px-4">${item.water ? item.water + ' ml' : '--'}</td>
+                    <td class="py-3 px-4 text-xs text-slate-500 max-w-xs truncate">${item.notes || '--'}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function clearAllData() {
+            if (confirm("Are you sure you want to delete all historical logs? This action cannot be undone.")) {
+                localStorage.removeItem(STORAGE_KEY_LOGS);
+                logs = {};
+                refreshDashboard();
+                renderHistoryTable();
+                alert("History cleared!");
+            }
+        }
+
+        // Excel Export/Import Features using SheetJS
+        function exportToExcel() {
+            const dataToExport = Object.keys(logs).map(date => ({
+                Date: date,
+                Weight_kg: logs[date].weight || '',
+                Sleep_hrs: logs[date].sleepTotal || '',
+                Workout: logs[date].workoutType || '',
+                Stretching: logs[date].stretching ? 'Yes' : 'No',
+                Protein_g: logs[date].protein || '',
+                Water_ml: logs[date].water || '',
+                Notes: logs[date].notes || ''
+            }));
+
+            if (dataToExport.length === 0) {
+                alert("No data available to export.");
+                return;
+            }
+
+            const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, "Fitness Logs");
+            XLSX.writeFile(workbook, `FitPulse_Export_${getTodayKey()}.xlsx`);
+        }
+
+        function importFromExcel(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(evt) {
+                const data = new Uint8Array(evt.target.result);
+                const workbook = XLSX.read(data, { type: 'array' });
+                const firstSheetName = workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[firstSheetName];
+                const json = XLSX.utils.sheet_to_json(worksheet);
+
+                json.forEach(row => {
+                    if (row.Date) {
+                        logs[row.Date] = {
+                            weight: parseFloat(row.Weight_kg) || 0,
+                            sleepTotal: parseFloat(row.Sleep_hrs) || 0,
+                            workoutType: row.Workout || 'None',
+                            stretching: row.Stretching === 'Yes',
+                            protein: parseInt(row.Protein_g) || 0,
+                            water: parseInt(row.Water_ml) || 0,
+                            notes: row.Notes || ''
+                        };
+                    }
+                });
+
+                localStorage.setItem(STORAGE_KEY_LOGS, JSON.stringify(logs));
+                refreshDashboard();
+                renderHistoryTable();
+                loadTodayLog();
+                alert("Excel data successfully imported!");
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        // Dynamic Manifest and ServiceWorker Registration to make this web app PWA-ready
+        function initializePWA() {
+            const manifestObj = {
+                name: "FitPulse Fitness Tracker",
+                short_name: "FitPulse",
+                start_url: ".",
+                display: "standalone",
+                background_color: "#f8fafc",
+                theme_color: "#16a34a",
+                icons: [{
+                    src: "https://cdn-icons-png.flaticon.com/512/2964/2964514.png",
+                    sizes: "512x512",
+                    type: "image/png"
+                }]
+            };
+
+            const manifestBlob = new Blob([JSON.stringify(manifestObj)], { type: 'application/json' });
+            const manifestURL = URL.createObjectURL(manifestBlob);
+            const link = document.createElement('link');
+            link.rel = 'manifest';
+            link.href = manifestURL;
+            document.head.appendChild(link);
+
+            if ('serviceWorker' in navigator) {
+                const swCode = `
+                    self.addEventListener('install', e => e.waitUntil(self.skipWaiting()));
+                    self.addEventListener('activate', e => e.waitUntil(self.clients.claim()));
+                    self.addEventListener('fetch', e => e.respondWith(fetch(e.request).catch(() => caches.match(e.request))));
+                `;
+                const swBlob = new Blob([swCode], { type: 'text/javascript' });
+                const swURL = URL.createObjectURL(swBlob);
+                navigator.serviceWorker.register(swURL).catch(() => {});
+            }
+        }
+
+        // Startup Initialization
+        window.onload = function() {
+            loadProfileFields();
+            loadTodayLog();
+            recalculateMetrics();
+            refreshDashboard();
+            renderHistoryTable();
+            initializePWA();
+        };
+    </script>
+</body>
+</html>
